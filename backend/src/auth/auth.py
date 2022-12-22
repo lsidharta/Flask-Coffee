@@ -4,7 +4,6 @@ from functools import wraps
 from jose import jwt
 from urllib.request import urlopen
 
-
 AUTH0_DOMAIN = 'dev-p3dircouw34iyawl.us.auth0.com'#'udacity-fsnd.auth0.com'
 ALGORITHMS = ['RS256']
 API_AUDIENCE = 'http://localhost:5000'#'dev'
@@ -147,7 +146,7 @@ def verify_decode_jwt(token):
                 'code': 'invalid_header',
                 'description': 'Unable to find the appropriate key.'
             }, 400)
-    raise Exception('Not Implemented')
+    return True #raise Exception('Not Implemented')
 
 '''
 @TODO implement @requires_auth(permission) decorator method
