@@ -30,6 +30,7 @@ class AuthError(Exception):
     return the token part of the header
 '''
 def get_token_auth_header():
+
     auth = request.headers.get('Authorization', None)
     
     if not auth:
@@ -38,7 +39,8 @@ def get_token_auth_header():
             'description': 'Authorization header is expected.'
         }, 401)
 
-    parts = auth.split()
+    parts = auth.split(' ')
+
     if parts[0].lower() != 'bearer':
         raise AuthError({
             'code': 'invalid_header',
@@ -47,17 +49,13 @@ def get_token_auth_header():
     elif len(parts) == 1:
         raise AuthError({
             'code': 'invalid_header',
-            'description': 'Token not found.'
-        }, 401)
+            'description': 'Token not found.'}, 401)
     elif len(parts) > 2:
         raise AuthError({
             'code': 'invalid_header',
-            'description': 'Authorization header must be bearer token.'
-        }, 401)
+            'description': 'Authorization header must be bearer token.'}, 401)
 
-    token = parts[1]
-    return token
-        #raise Exception('Not Implemented')
+    return parts[1]
 
 '''
 @TODO implement check_permissions(permission, payload) method
@@ -76,13 +74,13 @@ def check_permissions(permissions, payload):
         raise AuthError({
             'code': 'invalid_header',
             'description': 'Permissions not found.'
-        }, 400) #abort(400)
+        }, 400) 
     if permissions not in payload['permissions']:
         raise AuthError({
             'code': 'invalid_header',
             'description': 'Access Denied.'
-        }, 403) #abort(403)
-    return True #raise Exception('Not Implemented')
+        }, 403)
+    return True
 
 '''
 @TODO implement verify_decode_jwt(token) method
@@ -101,23 +99,19 @@ def verify_decode_jwt(token):
     jsonurl = urlopen(f'https://{AUTH0_DOMAIN}/.well-known/jwks.json')
     jwks = json.loads(jsonurl.read())
     unverified_header = jwt.get_unverified_header(token)
-    rsa_key = {}
     if 'kid' not in unverified_header:
         raise AuthError({
             'code': 'invalid_header',
             'description': 'Authorization malformed.'
         }, 401)
+        
+    rsa_key = {}
 
     for key in jwks['keys']:
         if key['kid'] == unverified_header['kid']:
-            rsa_key = {
-                'kty': key['kty'],
-                'kid': key['kid'],
-                'use': key['use'],
-                'n': key['n'],
-                'e': key['e']
-            }
-
+            rsa_key = {'kty': key['kty'], 'kid': key['kid'], 'use': key['use'],
+                'n': key['n'], 'e': key['e']}   
+        
     if rsa_key:
         try:
             payload = jwt.decode(
@@ -128,25 +122,22 @@ def verify_decode_jwt(token):
                 issuer='https://' + AUTH0_DOMAIN + '/'
             )
             return payload
-
         except jwt.ExpiredSignatureError:
             raise AuthError({
                 'code': 'token_expired',
                 'description': 'Token expired.'
             }, 401)
-
         except jwt.JWTClaimsError:
             raise AuthError({
                 'code': 'invalid_claims',
-                'description': 'Incorrect claims. Please, check the audience and issuer.'
-            }, 401)
-        
+                'description': 'Incorrect claims. Please, check the audience \
+                and issuer.'
+            }, 401) 
         except Exception:
             raise AuthError({
                 'code': 'invalid_header',
                 'description': 'Unable to find the appropriate key.'
             }, 400)
-    return True #raise Exception('Not Implemented')
 
 '''
 @TODO implement @requires_auth(permission) decorator method
@@ -166,6 +157,5 @@ def requires_auth(permission=''):
             payload = verify_decode_jwt(token)
             check_permissions(permission, payload)
             return f(payload, *args, **kwargs)
-
         return wrapper
     return requires_auth_decorator
