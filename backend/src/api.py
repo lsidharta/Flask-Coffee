@@ -34,16 +34,22 @@ CORS(app)
 @app.route('/drinks')
 @requires_auth('get:drinks')
 def get_drinks(jwt):
-    query = Drink.query.all()
-    '''
-    Reference: https://knowledge.udacity.com/questions/327463
-    '''
-    drinks = list(map(Drink.short, Drink.query.all()))
-    result = {
-        "success": True,
-        "drinks": drinks
-    }
-    return jsonify(result, 200)
+    try:
+        query = Drink.query.all()
+        print(query)
+        if query is None:
+            print("There is no drink in database.")
+            abort(404)
+        drinks = [drink.short() for drink in query]
+        print(len(drinks))
+        result = {
+            "success": True,
+            "drinks": drinks
+        }
+        return jsonify(result, 200)
+    except Exception as e:
+        print(e)
+        abort(422)
 
 '''
 @TODO implement endpoint
@@ -228,18 +234,17 @@ def handle_auth_error(ex):
 '''
 Reference: https://knowledge.udacity.com/questions/538174
 '''
-@app.route('/drinks/<int:drink_id>')
+@app.route('/drinks/test')
 @requires_auth('get:drinks')
 @app.errorhandler(AuthError)
-def get_specific_drink_test_1(jwt, drink_id):
+def get_specific_drink_test_1(jwt):
     '''
     Function to test the implementation of error handler 404
     '''
-    print(drink_id)
     try:
-        drink_obj = Drink.query.filter(Drink.id == int(drink_id)).one_or_none()
-        print(drink_obj)
+        drink_obj = Drink.query.filter(Drink.id == 8).one_or_none()
         if drink_obj is None:
+            drinks = []
             raise AuthError(
                 {
                     'success': False,
@@ -247,22 +252,19 @@ def get_specific_drink_test_1(jwt, drink_id):
                     'message': 'resource not found'
                 }, 404
             )
+        else:
+            drinks = drink_obj.long()
+        print(drinks)
         result = {
             "success": True,
-            "drinks": drink_obj.long()
+            "drinks": drinks
         }
         return jsonify(result, 200)
 
     except Exception as e:
         print(e)
-        raise AuthError(
-            {
-                'success': False,
-                'error': 422,
-                'message': 'unprocessable'
-            }, 422
-        )
-
+        abort(422)
+    
 '''
 @TODO implement error handler for AuthError
     error handler should conform to general task above
@@ -270,3 +272,31 @@ def get_specific_drink_test_1(jwt, drink_id):
 '''
 Reference: https://knowledge.udacity.com/questions/538174
 '''
+@app.route('/drinks/testauth')
+@requires_auth('get:drinks')
+@app.errorhandler(AuthError)
+def get_specific_drink_test_2(jwt):
+    '''
+    Function to test the implementation of error handler 404
+    '''
+    try:
+        drink_obj = Drink.query.filter(Drink.id == 8).one_or_none()
+        if drink_obj is None:
+            raise AuthError(
+                {
+                    'code': 'resource_not_found',
+                    'description': 'The server cannot find the requested resource.'
+                }, 404
+            )
+        else:
+            drinks = drink_obj.long()
+        print(drinks)
+        result = {
+            "success": True,
+            "drinks": drinks
+        }
+        return jsonify(result, 200)
+
+    except Exception as e:
+        print(e)
+        abort(422)
