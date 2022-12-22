@@ -32,14 +32,15 @@ class AuthError(Exception):
 '''
 def get_token_auth_header():
     auth = request.headers.get('Authorization', None)
+    
     if not auth:
         raise AuthError({
             'code': 'authorization_header_missing',
-            'description': 'Cuthorization header is expected.'
+            'description': 'Authorization header is expected.'
         }, 401)
 
     parts = auth.split()
-    if parts[0].lower() != 'beared':
+    if parts[0].lower() != 'bearer':
         raise AuthError({
             'code': 'invalid_header',
             'description': 'Authorization header must start with "Bearer"'
