@@ -100,10 +100,13 @@ def add_drinks(jwt):
             
             # Get the max id of available drinks
             drinks = Drink.query.with_entities(Drink.id).all()
-            ids = [item[0] for item in drinks if item[0] != None]
+            id_num = 1
+            if drinks:
+                ids = [item[0] for item in drinks if item[0] != None]
+                id_num = max(ids) + 1
             
             drink_obj = Drink()
-            drink_obj.id = max(ids) + 1
+            drink_obj.id = id_num
             drink_obj.title = new_drink['title']
             drink_obj.recipe = json.dumps(recipe) # recipe is a JSON string
             # Format to long for output
