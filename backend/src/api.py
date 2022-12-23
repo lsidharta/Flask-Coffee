@@ -2,7 +2,7 @@ import os
 from flask import Flask, request, jsonify, abort, Response
 from http import HTTPStatus
 from functools import wraps
-from sqlalchemy import exc
+from sqlalchemy import exc, func
 import json
 from flask_cors import CORS
 
@@ -31,22 +31,20 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks')
-@requires_auth('get:drinks')
-def get_drinks(jwt):
+@app.route('/drinks', methods=['GET'])
+def get_drinks():
     try:
-        query = Drink.query.all()
-        print(query)
-        if query is None:
+        drinks = Drink.query.all()
+        
+        if drinks is None:
             print("There is no drink in database.")
             abort(404)
-        drinks = [drink.short() for drink in query]
-        print(len(drinks))
-        result = {
+
+        return jsonify({
             "success": True,
-            "drinks": drinks
-        }
-        return jsonify(result, 200)
+            "drinks": [drink.short() for drink in drinks]
+        }), 200
+
     except Exception as e:
         print(e)
         abort(422)
@@ -64,19 +62,14 @@ def get_drinks(jwt):
 def get_drinks_detail(jwt):
     try:
         query = Drink.query.all()
-        '''
-        Reference: https://knowledge.udacity.com/questions/327463
-        '''
-        drinks = list(map(Drink.long, Drink.query.all()))
-        if not drinks:
+        if query is None:
             print("There is no drink in database.")
-            abort(404)
-
-        result = {
+            abort(404)        
+        
+        return jsonify({
             "success": True,
-            "drinks": drinks
-        }
-        return jsonify(result, 200)
+            "drinks": [drink.long() for drink in query]
+        }), 200
     except Exception as e:
         print(e)
         abort(422)
@@ -93,32 +86,35 @@ def get_drinks_detail(jwt):
 @app.route('/drinks', methods=['POST'])
 @requires_auth('post:drinks')
 def add_drinks(jwt):
-    try:
-        body = request.get_json()
-        #body = request.data
-        if body:
-            new_data = json.loads(body.decode('utf-8'))
-            old_drinks = Drink.query.count()
-            #print(new_data)
-            drink_obj = Drink(
-                            id=old_drinks+1,
-                            title=new_data['title'],
-                            recipe=json.dumps(new_data['recipe'])
-                        )
-            Drink.insert(drink_obj)
-            drinks = Drink.query.all()#list(map(Drink.long, Drink.query.all()))
-            print(len(drinks))
-            drinks_array = list(map(Drink.long, drinks))
-            print(drinks_array)
-            if not drinks:
-                print("There is no drink in database.")
-                abort(404)
 
-            result = {
+    new_drink = request.get_json()
+    
+    try:
+        if new_drink:
+            # recipe should be a list
+            recipe = []
+            if isinstance(new_drink['recipe'], dict):
+                recipe.append(new_drink['recipe'])
+            else:
+                recipe = new_drink['recipe']
+            
+            # Get the max id of available drinks
+            drinks = Drink.query.with_entities(Drink.id).all()
+            ids = [item[0] for item in drinks if item[0] != None]
+            
+            drink_obj = Drink()
+            drink_obj.id = max(ids) + 1
+            drink_obj.title = new_drink['title']
+            drink_obj.recipe = json.dumps(recipe) # recipe is a JSON string
+            # Format to long for output
+            drink_obj_long = drink_obj.long()
+
+            drink_obj.insert()
+            
+            return jsonify({
                 "success": True,
-                "drinks": drinks_array
-            }
-            return jsonify(result, 200)
+                "drinks": drink_obj_long
+            }), 200
     except Exception as e:
         print(e)
         abort(422)
@@ -137,11 +133,11 @@ def add_drinks(jwt):
 @app.route('/drinks/<int:drink_id>', methods=['PATCH'])
 @requires_auth('patch:drinks')
 def patch_drinks(jwt, drink_id):
+    drink = request.get_json()
     try:
         # Get the info from frontend
-        body = request.get_json()
-        new_title = body.get('title', None)
-        new_recipe = body.get('recipe', None)
+        new_title = drink.get('title', None)
+        new_recipe = drink.get('recipe', None)
         
         # Get the record from database
         drink_obj = Drink.query.filter(Drink.id == int(drink_id)).one_or_none()
@@ -149,15 +145,16 @@ def patch_drinks(jwt, drink_id):
         if drink_obj is None:
             abort(404)
         
-        drink_obj.title = new_title
-        drink_obj.recipe = json.dumps(new_recipe)
+        if new_title:
+            drink_obj.title = new_title
+        if new_recipe:
+            drink_obj.recipe = json.dumps(new_recipe)
         drink_obj.update()
 
-        result = {
+        return jsonify({
             'success': True,
             'drinks': json.dumps(drink_obj.long())
-            }
-        return jsonify(result, 200)
+            }), 200
 
     except Exception as e:
         print(e)
@@ -255,11 +252,10 @@ def get_specific_drink_test_1(jwt):
         else:
             drinks = drink_obj.long()
         print(drinks)
-        result = {
+        return jsonify({
             "success": True,
             "drinks": drinks
-        }
-        return jsonify(result, 200)
+        }), 200
 
     except Exception as e:
         print(e)
@@ -295,7 +291,10 @@ def get_specific_drink_test_2(jwt):
             "success": True,
             "drinks": drinks
         }
-        return jsonify(result, 200)
+        return jsonify({
+            "success": True,
+            "drinks": drinks
+        }), 200
 
     except Exception as e:
         print(e)
